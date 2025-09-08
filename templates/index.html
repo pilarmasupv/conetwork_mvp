@@ -6,15 +6,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    body { margin:0; font-family:'Inter',sans-serif; background:#f7f5fb; color:#333; }
+    body { margin:0; font-family:'Inter',sans-serif; background:#f7f5fb; }
     header { background:linear-gradient(90deg,#6a11cb 0%,#8e2de2 100%); color:white; padding:1rem 2rem; font-size:1.4rem; font-weight:600; }
-    nav a { color:white; margin-right:1.5rem; text-decoration:none; }
-    main { display:flex; height:calc(100vh - 90px); }
+    main { display:flex; height:calc(100vh - 70px); }
     aside { width:260px; background:white; padding:1rem; border-right:1px solid #ddd; }
     aside h3 { margin-top:0; color:#6a11cb; }
-    aside label { font-size:0.9rem; font-weight:500; }
-    aside select, aside input { width:100%; margin:0.4rem 0 1rem; padding:0.4rem; border:1px solid #ccc; border-radius:6px; }
-    button { width:100%; padding:0.6rem; background:#8e2de2; color:white; border:none; border-radius:6px; font-weight:600; cursor:pointer; }
+    select,input,button { width:100%; margin:0.5rem 0; padding:0.5rem; border-radius:6px; border:1px solid #ccc; }
+    button { background:#8e2de2; color:white; font-weight:600; cursor:pointer; border:none; }
     button:hover { background:#6a11cb; }
     .graph-container { flex:1; display:flex; justify-content:center; align-items:center; background:#fafafa; }
     svg { width:100%; height:100%; }
@@ -22,28 +20,26 @@
     .link { stroke:#bbb; stroke-opacity:0.6; cursor:pointer; }
     /* Modal */
     .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.4); }
-    .modal-content { background:white; margin:10% auto; padding:20px; border-radius:8px; width:400px; box-shadow:0 4px 10px rgba(0,0,0,0.3); }
+    .modal-content { background:white; margin:10% auto; padding:20px; border-radius:8px; width:420px; box-shadow:0 4px 10px rgba(0,0,0,0.3); }
     .close { float:right; font-size:20px; font-weight:bold; cursor:pointer; }
     .close:hover { color:#8e2de2; }
   </style>
 </head>
 <body>
-  <header>
-    Expert Connection Graph
-  </header>
+  <header>Expert Connection Graph</header>
   <main>
     <aside>
       <h3>Filters</h3>
-      <label for="country">Country</label>
+      <label>Country</label>
       <select id="country"><option value="all">All</option></select>
 
-      <label for="subfield">Subfield</label>
+      <label>Subfield</label>
       <select id="subfield"><option value="all">All</option></select>
 
-      <label for="year">Year (min)</label>
-      <input type="number" id="year" min="2000" max="2025" value="2010">
+      <label>Year (min)</label>
+      <input type="number" id="year" value="2010">
 
-      <label for="author">Author</label>
+      <label>Author</label>
       <input type="text" id="author" placeholder="Search author...">
       <button id="searchBtn">Search</button>
     </aside>
@@ -68,44 +64,37 @@
     document.querySelector(".close").onclick = () => modal.style.display = "none";
 
     function drawGraph(apiUrl) {
-      fetch(apiUrl)
-        .then(r => r.json())
-        .then(data => {
-          svg.selectAll("*").remove();
-          simulation = d3.forceSimulation(data.nodes)
-            .force("link", d3.forceLink(data.edges).id(d => d.id).distance(60))
-            .force("charge", d3.forceManyBody().strength(-50))
-            .force("center", d3.forceCenter(window.innerWidth/2, window.innerHeight/2));
+      fetch(apiUrl).then(r => r.json()).then(data => {
+        svg.selectAll("*").remove();
 
-          link = svg.append("g")
-            .attr("class","links")
-            .selectAll("line")
-            .data(data.edges)
-            .enter().append("line")
-            .attr("class","link")
-            .on("click",(event,d)=>showEdgeInfo(d));
+        simulation = d3.forceSimulation(data.nodes)
+          .force("link", d3.forceLink(data.edges).id(d => d.id).distance(80))
+          .force("charge", d3.forceManyBody().strength(-70))
+          .force("center", d3.forceCenter(window.innerWidth/2, window.innerHeight/2));
 
-          node = svg.append("g")
-            .attr("class","nodes")
-            .selectAll("circle")
-            .data(data.nodes)
-            .enter().append("circle")
-            .attr("class","node")
-            .attr("r",5)
-            .on("click",(event,d)=>showNodeInfo(d))
-            .call(d3.drag()
-              .on("start",dragstarted)
-              .on("drag",dragged)
-              .on("end",dragended));
+        link = svg.append("g")
+          .selectAll("line")
+          .data(data.edges).enter().append("line")
+          .attr("class","link")
+          .on("click",(e,d)=>showEdgeInfo(d));
 
-          simulation.on("tick",()=>{
-            link.attr("x1",d=>d.source.x)
-                .attr("y1",d=>d.source.y)
-                .attr("x2",d=>d.target.x)
-                .attr("y2",d=>d.target.y);
-            node.attr("cx",d=>d.x).attr("cy",d=>d.y);
-          });
+        node = svg.append("g")
+          .selectAll("circle")
+          .data(data.nodes).enter().append("circle")
+          .attr("class","node")
+          .attr("r",6)
+          .on("click",(e,d)=>showNodeInfo(d))
+          .call(d3.drag()
+            .on("start",dragstarted)
+            .on("drag",dragged)
+            .on("end",dragended));
+
+        simulation.on("tick",()=>{
+          link.attr("x1",d=>d.source.x).attr("y1",d=>d.source.y)
+              .attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);
+          node.attr("cx",d=>d.x).attr("cy",d=>d.y);
         });
+      });
     }
 
     function showNodeInfo(d){
@@ -114,6 +103,9 @@
         <p><b>Gender:</b> ${d.gender}</p>
         <p><b>Country:</b> ${d.country}</p>
         <p><b>Affiliation:</b> ${d.affiliation}</p>
+        <p><b>Subfield:</b> ${d.subfield}</p>
+        <p><b>Citations:</b> ${d.citations}</p>
+        <p><b>Papers:</b><br> ${d.papers ? d.papers.join("<br>") : "N/A"}</p>
       `;
       modal.style.display="block";
     }
@@ -123,18 +115,26 @@
         <h3>Co-authorship</h3>
         <p><b>Source:</b> ${d.source.id}</p>
         <p><b>Target:</b> ${d.target.id}</p>
-        <p><b>Subfield:</b> ${d.subfield}</p>
+        <p><b>Paper:</b> ${d.paper_title}</p>
         <p><b>Year:</b> ${d.year}</p>
-        <p><b>Papers:</b> ${d.papers ? d.papers.join(", ") : "N/A"}</p>
+        <p><b>Venue:</b> ${d.venue}</p>
       `;
       modal.style.display="block";
     }
 
-    function dragstarted(event,d){ if(!event.active) simulation.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; }
-    function dragged(event,d){ d.fx=event.x; d.fy=event.y; }
-    function dragended(event,d){ if(!event.active) simulation.alphaTarget(0); d.fx=null; d.fy=null; }
+    function dragstarted(e,d){ if(!e.active) simulation.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; }
+    function dragged(e,d){ d.fx=e.x; d.fy=e.y; }
+    function dragended(e,d){ if(!e.active) simulation.alphaTarget(0); d.fx=null; d.fy=null; }
 
-    // Inicial load
+    // Populate filters
+    fetch("/api/filters").then(r=>r.json()).then(filters=>{
+      const countrySel=document.getElementById("country");
+      const subfieldSel=document.getElementById("subfield");
+      filters.countries.forEach(c=>countrySel.innerHTML+=`<option value="${c}">${c}</option>`);
+      filters.subfields.forEach(s=>subfieldSel.innerHTML+=`<option value="${s}">${s}</option>`);
+    });
+
+    // First load
     drawGraph("/api/graph");
 
     // Search button
