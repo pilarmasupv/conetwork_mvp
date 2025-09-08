@@ -18,8 +18,8 @@ def home():
 
 @app.route("/api/graph")
 def get_graph():
-    country = request.args.get("country")
-    subfield = request.args.get("subfield")
+    countries = request.args.getlist("country")
+    subfields = request.args.getlist("subfield")
     min_year = request.args.get("year", type=int)
     author_query = request.args.get("author", "").lower()
     main_field = request.args.get("main_field")
@@ -32,13 +32,13 @@ def get_graph():
         allowed_ids = {n["id"] for n in filtered_nodes}
         filtered_edges = [e for e in filtered_edges if e["source"] in allowed_ids and e["target"] in allowed_ids]
 
-    if country and country != "all":
-        filtered_nodes = [n for n in filtered_nodes if n.get("country") == country]
+    if countries and "all" not in countries:
+        filtered_nodes = [n for n in filtered_nodes if n.get("country") in countries]
         allowed_ids = {n["id"] for n in filtered_nodes}
         filtered_edges = [e for e in filtered_edges if e["source"] in allowed_ids and e["target"] in allowed_ids]
 
-    if subfield and subfield != "all":
-        filtered_nodes = [n for n in filtered_nodes if n.get("subfield") == subfield]
+    if subfields and "all" not in subfields:
+        filtered_nodes = [n for n in filtered_nodes if n.get("subfield") in subfields]
         allowed_ids = {n["id"] for n in filtered_nodes}
         filtered_edges = [e for e in filtered_edges if e["source"] in allowed_ids and e["target"] in allowed_ids]
 
