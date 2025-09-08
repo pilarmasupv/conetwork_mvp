@@ -2,25 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Expert Connection Graph</title>
+  <title>Expert Knowledge Graph</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    body { margin:0; font-family:'Inter',sans-serif; background:#f7f5fb; }
-    header { background:linear-gradient(90deg,#6a11cb 0%,#8e2de2 100%); color:white; padding:1rem 2rem; font-size:1.4rem; font-weight:600; }
-    main { display:flex; height:calc(100vh - 70px); }
+    body { margin:0; font-family:'Inter',sans-serif; background:#f9f9fb; }
+    header { background:#2c0247; color:white; padding:0.8rem 2rem; font-size:1.4rem; font-weight:600; display:flex; align-items:center; justify-content:space-between; }
+    .tabs { display:flex; gap:1rem; }
+    .tab { cursor:pointer; padding:0.4rem 0.8rem; border-radius:6px; }
+    .tab.active { background:#8e2de2; }
+    main { display:flex; height:calc(100vh - 60px); }
     aside { width:260px; background:white; padding:1rem; border-right:1px solid #ddd; overflow-y:auto; }
     aside h3 { margin-top:0; color:#6a11cb; }
     select,input,button { width:100%; margin:0.5rem 0; padding:0.5rem; border-radius:6px; border:1px solid #ccc; }
     button { background:#8e2de2; color:white; font-weight:600; cursor:pointer; border:none; }
     button:hover { background:#6a11cb; }
-    .graph-container { flex:1; display:flex; justify-content:center; align-items:center; background:#fafafa; }
+    .graph-container { flex:1; display:flex; justify-content:center; align-items:center; background:#f3f0f7; }
     svg { width:100%; height:100%; }
     .node { stroke:white; stroke-width:1.2px; cursor:pointer; }
     .link { stroke:#bbb; stroke-opacity:0.6; cursor:pointer; }
     /* Modal */
-    .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.4); }
-    .modal-content { background:white; margin:10% auto; padding:20px; border-radius:8px; width:420px; box-shadow:0 4px 10px rgba(0,0,0,0.3); }
+    .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
+    .modal-content { background:white; margin:5% auto; padding:20px; border-radius:10px; width:600px; max-height:80vh; overflow-y:auto; box-shadow:0 4px 15px rgba(0,0,0,0.4); }
     .close { float:right; font-size:20px; font-weight:bold; cursor:pointer; }
     .close:hover { color:#8e2de2; }
     .author-link { color:#6a11cb; cursor:pointer; }
@@ -28,7 +31,10 @@
   </style>
 </head>
 <body>
-  <header>Expert Connection Graph</header>
+  <header>
+    <div>Expert Knowledge Graph</div>
+    <div class="tabs" id="tabs"></div>
+  </header>
   <main>
     <aside>
       <h3>Filters</h3>
@@ -39,13 +45,12 @@
       <select id="subfield"><option value="all">All</option></select>
 
       <label>Year (min)</label>
-      <input type="number" id="year" value="2010">
+      <input type="number" id="year" value="2000">
 
       <label>Author</label>
       <input type="text" id="author" placeholder="Search author...">
 
       <label><input type="checkbox" id="colorByGender"> Color by gender</label>
-
       <button id="searchBtn">Search</button>
     </aside>
     <div class="graph-container">
@@ -63,7 +68,7 @@
 
   <script>
     const svg = d3.select("svg").select("g");
-    let simulation, link, node;
+    let simulation, link, node, currentField="all";
     const modal = document.getElementById("infoModal");
     const modalBody = document.getElementById("modal-body");
     document.querySelector(".close").onclick = () => modal.style.display = "none";
@@ -77,29 +82,30 @@
       if (document.getElementById("colorByGender").checked) {
         return d.gender === "Female" ? "#ff69b4" : "#1f77b4";
       }
-      return "#8e2de2";
+      const fieldColors = {
+        "Data Science & Computing":"#8e2de2",
+        "Medicine & Life Sciences":"#e63946",
+        "Social Sciences & Humanities":"#457b9d",
+        "Natural Sciences & Engineering":"#2a9d8f"
+      };
+      return fieldColors[d.main_field] || "#8e2de2";
     }
 
     function drawGraph(apiUrl) {
       fetch(apiUrl).then(r => r.json()).then(data => {
-        // Join edges
         link = svg.selectAll(".link")
           .data(data.edges, d => d.source.id + "-" + d.target.id)
           .join(
-            enter => enter.append("line").attr("class","link")
-              .on("click",(e,d)=>showEdgeInfo(d)),
+            enter => enter.append("line").attr("class","link").on("click",(e,d)=>showEdgeInfo(d)),
             update => update,
             exit => exit.remove()
           );
 
-        // Join nodes
         node = svg.selectAll(".node")
           .data(data.nodes, d => d.id)
           .join(
             enter => enter.append("circle")
-              .attr("class","node")
-              .attr("r",6)
-              .attr("fill", nodeColor)
+              .attr("class","node").attr("r",6).attr("fill", nodeColor)
               .on("click",(e,d)=>showNodeInfo(d))
               .append("title").text(d => `${d.id}\n${d.subfield}`),
             update => update.attr("fill", nodeColor),
@@ -108,18 +114,15 @@
 
         simulation = d3.forceSimulation(data.nodes)
           .force("link", d3.forceLink(data.edges).id(d => d.id).distance(80))
-          .force("charge", d3.forceManyBody().strength(-70))
+          .force("charge", d3.forceManyBody().strength(-60))
           .force("center", d3.forceCenter(window.innerWidth/2.5, window.innerHeight/2));
 
         simulation.on("tick", () => {
           svg.selectAll(".link")
-            .attr("x1", d => d.source.x)
-            .attr("y1", d => d.source.y)
-            .attr("x2", d => d.target.x)
-            .attr("y2", d => d.target.y);
+            .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
           svg.selectAll(".node")
-            .attr("cx", d => d.x)
-            .attr("cy", d => d.y);
+            .attr("cx", d => d.x).attr("cy", d => d.y);
         });
       });
     }
@@ -128,11 +131,17 @@
       modalBody.innerHTML = `
         <h3>${d.id}</h3>
         <p><b>Gender:</b> ${d.gender}</p>
+        <p><b>Age:</b> ${d.age}</p>
         <p><b>Country:</b> ${d.country}</p>
         <p><b>Affiliation:</b> ${d.affiliation}</p>
+        <p><b>Main Field:</b> ${d.main_field}</p>
         <p><b>Subfield:</b> ${d.subfield}</p>
+        <p><b>Position:</b> ${d.position}</p>
+        <p><b>Years Active:</b> ${d.years_active}</p>
         <p><b>Citations:</b> ${d.citations}</p>
-        <p><b>Papers:</b><br> ${d.papers ? d.papers.join("<br>") : "N/A"}</p>
+        <p><b>H-Index:</b> ${d.h_index}</p>
+        <p><b>ORCID:</b> ${d.orcid}</p>
+        <p><b>Papers:</b><br>${d.papers ? d.papers.join("<br>") : "N/A"}</p>
       `;
       modal.style.display="block";
     }
@@ -142,8 +151,11 @@
         <h3>${d.paper_title}</h3>
         <p><b>Year:</b> ${d.year}</p>
         <p><b>Venue:</b> ${d.venue}</p>
+        <p><b>Citations:</b> ${d.citations}</p>
+        <p><b>Keywords:</b> ${d.keywords.join(", ")}</p>
         <p><b>Authors:</b><br>
-           ${[d.source.id, d.target.id].map(a => `<span class="author-link">${a}</span>`).join("<br>")}
+          <span class="author-link">${d.source.id}</span><br>
+          <span class="author-link">${d.target.id}</span>
         </p>
       `;
       modal.style.display="block";
@@ -161,24 +173,44 @@
       const subfieldSel=document.getElementById("subfield");
       filters.countries.forEach(c=>countrySel.innerHTML+=`<option value="${c}">${c}</option>`);
       filters.subfields.forEach(s=>subfieldSel.innerHTML+=`<option value="${s}">${s}</option>`);
-      document.getElementById("year").min = filters.years.min || 2000;
-      document.getElementById("year").max = filters.years.max || 2025;
     });
 
-    // First load
+    // Tabs for main fields
+    fetch("/api/main_fields").then(r=>r.json()).then(fields=>{
+      const tabs=document.getElementById("tabs");
+      tabs.innerHTML=`<div class="tab active" data-field="all">All</div>`;
+      fields.forEach(f=>{
+        const el=document.createElement("div");
+        el.className="tab";
+        el.dataset.field=f;
+        el.innerText=f;
+        tabs.appendChild(el);
+      });
+      tabs.querySelectorAll(".tab").forEach(tab=>{
+        tab.onclick=()=>{
+          tabs.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+          tab.classList.add("active");
+          currentField=tab.dataset.field;
+          applyFilters();
+        };
+      });
+    });
+
+    // Initial load
     drawGraph("/api/graph");
 
-    // Search button
-    document.getElementById("searchBtn").addEventListener("click",()=>{
+    // Search
+    document.getElementById("searchBtn").addEventListener("click", applyFilters);
+
+    function applyFilters(){
       const author=document.getElementById("author").value;
       const country=document.getElementById("country").value;
       const subfield=document.getElementById("subfield").value;
       const year=document.getElementById("year").value;
-      let url=`/api/graph?author=${author}&country=${country}&subfield=${subfield}&year=${year}`;
+      let url=`/api/graph?author=${author}&country=${country}&subfield=${subfield}&year=${year}&main_field=${currentField}`;
       drawGraph(url);
-    });
+    }
 
-    // Recolor on gender toggle
     document.getElementById("colorByGender").addEventListener("change",()=>{
       svg.selectAll(".node").attr("fill", nodeColor);
     });
