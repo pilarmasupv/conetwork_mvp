@@ -11,16 +11,16 @@
     .tabs { display:flex; gap:1rem; }
     .tab { cursor:pointer; padding:0.4rem 0.8rem; border-radius:6px; }
     .tab.active { background:#8e2de2; }
-    main { display:flex; height:calc(100vh - 60px); }
-    aside { width:260px; background:white; padding:1rem; border-right:1px solid #ddd; overflow-y:auto; }
-    aside h3 { margin-top:0; color:#6a11cb; }
-    select,input,button { width:100%; margin:0.5rem 0; padding:0.5rem; border-radius:6px; border:1px solid #ccc; }
-    button { background:#8e2de2; color:white; font-weight:600; cursor:pointer; border:none; }
-    button:hover { background:#6a11cb; }
-    .graph-container { flex:1; display:flex; justify-content:center; align-items:center; background:#f3f0f7; }
+    main { height:calc(100vh - 60px); display:flex; justify-content:center; align-items:center; background:#f3f0f7; }
     svg { width:100%; height:100%; }
     .node { stroke:white; stroke-width:1.2px; cursor:pointer; }
     .link { stroke:#bbb; stroke-opacity:0.6; cursor:pointer; }
+    /* Floating filters bar */
+    .filters { position:fixed; bottom:0; left:0; right:0; background:white; border-top:1px solid #ddd; padding:0.6rem 1rem; display:flex; gap:1rem; justify-content:center; align-items:center; box-shadow:0 -2px 8px rgba(0,0,0,0.1); }
+    select,input,button { padding:0.4rem; border-radius:6px; border:1px solid #ccc; }
+    select[multiple] { height:5rem; }
+    button { background:#8e2de2; color:white; font-weight:600; cursor:pointer; border:none; }
+    button:hover { background:#6a11cb; }
     /* Modal */
     .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
     .modal-content { background:white; margin:5% auto; padding:20px; border-radius:10px; width:600px; max-height:80vh; overflow-y:auto; box-shadow:0 4px 15px rgba(0,0,0,0.4); }
@@ -36,27 +36,34 @@
     <div class="tabs" id="tabs"></div>
   </header>
   <main>
-    <aside>
-      <h3>Filters</h3>
-      <label>Country</label>
-      <select id="country"><option value="all">All</option></select>
-
-      <label>Subfield</label>
-      <select id="subfield"><option value="all">All</option></select>
-
-      <label>Year (min)</label>
-      <input type="number" id="year" value="2000">
-
-      <label>Author</label>
-      <input type="text" id="author" placeholder="Search author...">
-
-      <label><input type="checkbox" id="colorByGender"> Color by gender</label>
-      <button id="searchBtn">Search</button>
-    </aside>
-    <div class="graph-container">
-      <svg><g></g></svg>
-    </div>
+    <svg><g></g></svg>
   </main>
+
+  <!-- Floating filters -->
+  <div class="filters">
+    <label>Countries</label>
+    <select id="country" multiple><option value="all">All</option></select>
+
+    <label>Subfields</label>
+    <select id="subfield" multiple><option value="all">All</option></select>
+
+    <label>Min Year</label>
+    <input type="number" id="year" value="2000">
+
+    <label>Author</label>
+    <input type="text" id="author" placeholder="Search author...">
+
+    <label>Color by</label>
+    <select id="colorField">
+      <option value="main_field">Main Field</option>
+      <option value="gender">Gender</option>
+      <option value="country">Country</option>
+      <option value="subfield">Subfield</option>
+      <option value="position">Position</option>
+    </select>
+
+    <button id="searchBtn">Apply</button>
+  </div>
 
   <!-- Modal -->
   <div id="infoModal" class="modal">
@@ -78,17 +85,12 @@
     });
     d3.select("svg").call(zoom);
 
+    // Color function by selected field
     function nodeColor(d) {
-      if (document.getElementById("colorByGender").checked) {
-        return d.gender === "Female" ? "#ff69b4" : "#1f77b4";
-      }
-      const fieldColors = {
-        "Data Science & Computing":"#8e2de2",
-        "Medicine & Life Sciences":"#e63946",
-        "Social Sciences & Humanities":"#457b9d",
-        "Natural Sciences & Engineering":"#2a9d8f"
-      };
-      return fieldColors[d.main_field] || "#8e2de2";
+      const field = document.getElementById("colorField").value;
+      const palette = d3.schemeCategory10;
+      const value = d[field] || "Other";
+      return d3.scaleOrdinal(palette)(value);
     }
 
     function drawGraph(apiUrl) {
@@ -199,19 +201,22 @@
     // Initial load
     drawGraph("/api/graph");
 
-    // Search
+    // Search button
     document.getElementById("searchBtn").addEventListener("click", applyFilters);
 
     function applyFilters(){
       const author=document.getElementById("author").value;
-      const country=document.getElementById("country").value;
-      const subfield=document.getElementById("subfield").value;
+      const countries=Array.from(document.getElementById("country").selectedOptions).map(o=>o.value);
+      const subfields=Array.from(document.getElementById("subfield").selectedOptions).map(o=>o.value);
       const year=document.getElementById("year").value;
-      let url=`/api/graph?author=${author}&country=${country}&subfield=${subfield}&year=${year}&main_field=${currentField}`;
+      let url=`/api/graph?author=${author}&year=${year}&main_field=${currentField}`;
+      countries.forEach(c=> url+=`&country=${c}`);
+      subfields.forEach(s=> url+=`&subfield=${s}`);
       drawGraph(url);
     }
 
-    document.getElementById("colorByGender").addEventListener("change",()=>{
+    // Recolor when color field changes
+    document.getElementById("colorField").addEventListener("change",()=>{
       svg.selectAll(".node").attr("fill", nodeColor);
     });
   </script>
