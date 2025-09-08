@@ -1,9 +1,9 @@
 from flask import Flask, render_template, jsonify, request
-import json
-import os
+import json, os
 
 app = Flask(__name__)
 
+# Load dataset safely
 DATA_PATH = os.path.join(os.path.dirname(__file__), "graph_dataset.json")
 with open(DATA_PATH, "r", encoding="utf-8") as f:
     graph_data = json.load(f)
@@ -31,9 +31,9 @@ def get_graph():
         filtered_edges = [e for e in filtered_edges if e["source"] in allowed_ids and e["target"] in allowed_ids]
 
     if subfield and subfield != "all":
-        filtered_edges = [e for e in filtered_edges if e.get("subfield") == subfield]
-        allowed_ids = {e["source"] for e in filtered_edges} | {e["target"] for e in filtered_edges}
-        filtered_nodes = [n for n in filtered_nodes if n["id"] in allowed_ids]
+        filtered_nodes = [n for n in filtered_nodes if n.get("subfield") == subfield]
+        allowed_ids = {n["id"] for n in filtered_nodes}
+        filtered_edges = [e for e in filtered_edges if e["source"] in allowed_ids and e["target"] in allowed_ids]
 
     if min_year:
         filtered_edges = [e for e in filtered_edges if e.get("year", 0) >= min_year]
@@ -50,7 +50,7 @@ def get_graph():
 @app.route("/api/filters")
 def get_filters():
     countries = sorted({n.get("country", "Unknown") for n in nodes})
-    subfields = sorted({e.get("subfield", "Unknown") for e in edges})
+    subfields = sorted({n.get("subfield", "Unknown") for n in nodes})
     years = sorted({e.get("year", 0) for e in edges if "year" in e})
 
     return jsonify({
