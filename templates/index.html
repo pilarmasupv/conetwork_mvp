@@ -1,29 +1,135 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Expert Graph</title>
+  <meta charset="UTF-8">
+  <title>Expert Connection Graph</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; }
-    .node { fill: steelblue; stroke: white; stroke-width: 1.5px; }
-    .link { stroke: #999; stroke-opacity: 0.6; }
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: #f7f5fb;
+      color: #333;
+    }
+    header {
+      background: linear-gradient(90deg, #6a11cb 0%, #8e2de2 100%);
+      color: white;
+      padding: 1rem 2rem;
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+    nav {
+      margin-top: 0.5rem;
+    }
+    nav a {
+      color: white;
+      margin-right: 1.5rem;
+      text-decoration: none;
+      font-weight: 400;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    main {
+      display: flex;
+      height: calc(100vh - 90px);
+    }
+    aside {
+      width: 250px;
+      background: white;
+      padding: 1rem;
+      border-right: 1px solid #ddd;
+    }
+    aside h3 {
+      margin-top: 0;
+      color: #6a11cb;
+    }
+    aside label {
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    aside select, aside input {
+      width: 100%;
+      margin: 0.4rem 0 1rem;
+      padding: 0.4rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    .graph-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #fafafa;
+    }
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+    .node {
+      fill: #8e2de2;
+      stroke: white;
+      stroke-width: 1.2px;
+    }
+    .link {
+      stroke: #bbb;
+      stroke-opacity: 0.6;
+    }
   </style>
 </head>
 <body>
-  <h1>Expert Connection Graph</h1>
-  <svg width="800" height="600"></svg>
+  <header>
+    Expert Connection Graph
+    <nav>
+      <a href="#">Home</a>
+      <a href="#">Explore</a>
+      <a href="#">Filters</a>
+    </nav>
+  </header>
+  <main>
+    <aside>
+      <h3>Filters</h3>
+      <label for="country">Country</label>
+      <select id="country">
+        <option value="all">All</option>
+      </select>
+
+      <label for="subfield">Subfield</label>
+      <select id="subfield">
+        <option value="all">All</option>
+      </select>
+
+      <label for="year">Year (min)</label>
+      <input type="number" id="year" min="2000" max="2025" value="2010">
+    </aside>
+    <div class="graph-container">
+      <svg></svg>
+    </div>
+  </main>
 
   <script>
     fetch("/api/graph")
       .then(response => response.json())
       .then(data => {
+        // populate filters
+        const countries = [...new Set(data.nodes.map(d => d.country))];
+        const subfields = [...new Set(data.edges.map(e => e.subfield))];
+
+        countries.forEach(c => {
+          document.getElementById("country").innerHTML += `<option value="${c}">${c}</option>`;
+        });
+        subfields.forEach(s => {
+          document.getElementById("subfield").innerHTML += `<option value="${s}">${s}</option>`;
+        });
+
         const svg = d3.select("svg"),
-              width = +svg.attr("width"),
-              height = +svg.attr("height");
+              width = window.innerWidth - 250,
+              height = window.innerHeight - 90;
 
         const simulation = d3.forceSimulation(data.nodes)
-          .force("link", d3.forceLink(data.edges).id(d => d.id))
-          .force("charge", d3.forceManyBody())
+          .force("link", d3.forceLink(data.edges).id(d => d.id).distance(50))
+          .force("charge", d3.forceManyBody().strength(-30))
           .force("center", d3.forceCenter(width / 2, height / 2));
 
         const link = svg.append("g")
@@ -46,7 +152,7 @@
             .on("end", dragended));
 
         node.append("title")
-          .text(d => d.id);
+          .text(d => d.id + " (" + d.affiliation + ")");
 
         simulation.on("tick", () => {
           link
@@ -65,12 +171,10 @@
           d.fx = d.x;
           d.fy = d.y;
         }
-
         function dragged(event, d) {
           d.fx = event.x;
           d.fy = event.y;
         }
-
         function dragended(event, d) {
           if (!event.active) simulation.alphaTarget(0);
           d.fx = null;
