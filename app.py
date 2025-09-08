@@ -4,8 +4,8 @@ import os
 
 app = Flask(__name__)
 
-# Load dataset
-with open("graph_dataset.json", "r", encoding="utf-8") as f:
+DATA_PATH = os.path.join(os.path.dirname(__file__), "graph_dataset.json")
+with open(DATA_PATH, "r", encoding="utf-8") as f:
     graph_data = json.load(f)
 
 nodes = graph_data.get("nodes", [])
